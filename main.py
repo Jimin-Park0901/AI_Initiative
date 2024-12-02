@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 from parse import parse_with_ollama
 from scrape import (
@@ -5,8 +6,7 @@ from scrape import (
     extract_body_content, 
     scrape_website, 
     split_dom_content,
-    )
-from parse import parse_with_ollama
+)
 
 st.title("AI Web Scrapper")
 url = st.text_input("Enter a Website URL: ")
@@ -14,7 +14,7 @@ url = st.text_input("Enter a Website URL: ")
 if st.button("Scrape Website"):
     if url:
         st.write("Scraping the website...")
-
+        
         # Scrape the website
         dom_content = scrape_website(url)
         body_content = extract_body_content(dom_content)
@@ -27,16 +27,35 @@ if st.button("Scrape Website"):
         with st.expander("View DOM Content"):
             st.text_area("DOM Content", cleaned_content, height=300)
 
-
 # Step 2: Ask Questions About the DOM Content
 if "dom_content" in st.session_state:
     parse_description = st.text_area("Describe what you want to parse")
 
     if st.button("Parse Content"):
         if parse_description:
-            st.write("Parsing the content...")
+            # Use a spinner to indicate processing
+            with st.spinner("Parsing the content. Please wait..."):
+                dom_chunks = split_dom_content(st.session_state.dom_content)
+                parsed_result = parse_with_ollama(dom_chunks, parse_description)
 
-            # Parse the content with Ollama
-            dom_chunks = split_dom_content(st.session_state.dom_content)
-            parsed_result = parse_with_ollama(dom_chunks, parse_description)
+            # Display the parsed result
+            st.write("Parsing completed!")
             st.write(parsed_result)
+
+            # Save the parsed result to an Excel file
+            data = {"Parsed Data": parsed_result.splitlines()}
+            df = pd.DataFrame(data)
+
+            excel_file = "parsed_output.xlsx"
+            df.to_excel(excel_file, index=False)
+
+            # Allow user to download the Excel file
+            st.download_button(
+                label="Download Parsed Content as Excel",
+                data=open(excel_file, "rb").read(),
+                file_name=excel_file,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
+            # Show the parsed content in a table
+            st.dataframe(df)
