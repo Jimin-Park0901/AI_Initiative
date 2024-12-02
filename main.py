@@ -38,24 +38,30 @@ if "dom_content" in st.session_state:
                 dom_chunks = split_dom_content(st.session_state.dom_content)
                 parsed_result = parse_with_ollama(dom_chunks, parse_description)
 
-            # Display the parsed result
             st.write("Parsing completed!")
-            st.write(parsed_result)
 
-            # Save the parsed result to an Excel file
-            data = {"Parsed Data": parsed_result.splitlines()}
-            df = pd.DataFrame(data)
+            # Transform the parsed result into tabular format
+            try:
+                # Assuming parsed_result contains a Markdown table or structured text
+                # Use `pandas` to create a DataFrame directly from parsed_result if possible
+                rows = [line.split("|")[1:-1] for line in parsed_result.splitlines() if line.startswith("|")]
+                headers = rows.pop(0)
+                df = pd.DataFrame(rows, columns=headers)
 
-            excel_file = "parsed_output.xlsx"
-            df.to_excel(excel_file, index=False)
+                # Display table in Streamlit
+                st.dataframe(df)
 
-            # Allow user to download the Excel file
-            st.download_button(
-                label="Download Parsed Content as Excel",
-                data=open(excel_file, "rb").read(),
-                file_name=excel_file,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+                # Save the parsed result to an Excel file
+                excel_file = "parsed_output of.xlsx"
+                df.to_excel(excel_file, index=False)
 
-            # Show the parsed content in a table
-            st.dataframe(df)
+                # Allow user to download the Excel file
+                st.download_button(
+                    label="Download Parsed Content as Excel",
+                    data=open(excel_file, "rb").read(),
+                    file_name=excel_file,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            except Exception as e:
+                st.error(f"Failed to process parsed content: {e}")
+                st.text_area("Parsed Result", parsed_result)
