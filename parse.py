@@ -8,6 +8,7 @@ template = (
     "2. **No Extra Content:** Do not include any additional text, comments, or explanations in your response. "
     "3. **Empty Response:** If no information matches the description, return an empty string ('')."
     "4. **Direct Data Only:** Your output should contain only the data that is explicitly requested, with no other text."
+    "5. **Include every data** Try to include every data on website"
 )
 
 model = OllamaLLM(model="llama3")
