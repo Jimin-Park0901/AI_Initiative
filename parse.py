@@ -9,6 +9,7 @@ template = (
     "3. **Empty Response:** If no information matches the description, return an empty string ('')."
     "4. **Direct Data Only:** Your output should contain only the data that is explicitly requested, with no other text."
     "5. **Include every data** Try to include every data on website"
+    # "6. **Add a column for engine code** Try to obtain engine code based on the engine information given."
 )
 
 model = OllamaLLM(model="llama3")
