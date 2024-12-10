@@ -1,3 +1,4 @@
+from importlib import reload
 import pandas as pd
 import streamlit as st
 from urllib.parse import urlparse
@@ -43,7 +44,7 @@ with col1:
                 st.error("Invalid URL. Ensure it starts with 'http://' or 'https://'.")
 
     # Bottom Left Section: Manage URLs and Commands
-    st.subheader("📝 Manage URLs and Commands")
+    st.subheader("Manage URLs and Commands")
     if st.session_state.urls_and_commands:
         for i, item in enumerate(st.session_state.urls_and_commands):
             with st.expander(f"URL {i + 1}: {item['url']}"):
@@ -68,7 +69,7 @@ with col1:
 # --- Column 2: Right Section ---
 with col2:
     # Upper Right Section: Scrape and Process Results
-    st.header("🚀 Scrape and Process Results")
+    st.header("Scrape and Process Results")
     
     if st.button("Start Processing All URLs"):
         if st.session_state.urls_and_commands:
@@ -110,6 +111,12 @@ with col2:
 
                 st.success("✅ Processing complete!")
                 st.session_state.results_file = excel_file
+                st.download_button(
+                    label="Download Parsed Content as Excel",
+                    data=open(excel_file, "rb").read(),
+                    file_name=excel_file,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
 
             except Exception as e:
                 st.error(f"Error during processing: {e}")
