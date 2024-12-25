@@ -2,7 +2,7 @@ from importlib import reload
 import pandas as pd
 import streamlit as st
 from urllib.parse import urlparse
-from parse import parse_with_ollama
+from parse import parse_with_chatgpt
 from scrape import (
     clean_body_content,
     extract_body_content,
@@ -22,15 +22,12 @@ if "download_history" not in st.session_state:
 st.title("🌐 Multi-Link Web Scraper")
 
 # --- Layout --- 
-# Create 2 columns: one for the left side (URLs) and one for the right side (scraping and download)
 col1, col2 = st.columns([2, 3])
 
-# --- Column 1: Left Section --- 
+# --- Column 1: Add and Manage URLs ---
 with col1:
-    # Top Section: Add URL and Command
     st.header("🔗 Add and Manage URLs")
-    
-    # Add URLs and Commands
+
     with st.form("add_url_form"):
         st.subheader("➕ Add New URL")
         url = st.text_input("Enter Website URL")
@@ -43,7 +40,6 @@ with col1:
             else:
                 st.error("Invalid URL. Ensure it starts with 'http://' or 'https://'.")
 
-    # Bottom Left Section: Manage URLs and Commands
     st.subheader("Manage URLs and Commands")
     if st.session_state.urls_and_commands:
         for i, item in enumerate(st.session_state.urls_and_commands):
@@ -52,7 +48,6 @@ with col1:
                 new_url = st.text_input(f"Edit URL {i + 1}", item['url'], key=f"url_{i}")
                 new_command = st.text_input(f"Edit Command {i + 1}", item['command'], key=f"command_{i}")
 
-                # Buttons below the input fields
                 save_button = st.button("Save Changes", key=f"save_{i}")
                 delete_button = st.button("Delete", key=f"delete_{i}")
 
@@ -66,11 +61,9 @@ with col1:
     else:
         st.info("No URLs added yet. Add them above.")
 
-# --- Column 2: Right Section ---
+# --- Column 2: Scrape and Process Results ---
 with col2:
-    # Upper Right Section: Scrape and Process Results
     st.header("Scrape and Process Results")
-    
     if st.button("Start Processing All URLs"):
         if st.session_state.urls_and_commands:
             progress = st.progress(0)
@@ -78,36 +71,47 @@ with col2:
 
             try:
                 with pd.ExcelWriter(excel_file, engine="openpyxl") as writer:
+                    sheets_written = 0  # Track how many sheets are written
+                    
                     for i, item in enumerate(st.session_state.urls_and_commands):
                         url, command = item["url"], item["command"]
 
-                        # Update progress
                         progress.progress((i + 1) / len(st.session_state.urls_and_commands))
                         st.write(f"Processing URL {i + 1}: {url}")
 
-                        # Scrape and parse the website
                         dom_content = scrape_website(url)
                         body_content = extract_body_content(dom_content)
                         cleaned_content = clean_body_content(body_content)
                         dom_chunks = split_dom_content(cleaned_content)
-                        parsed_result = parse_with_ollama(dom_chunks, command)
+                        parsed_result = parse_with_chatgpt(dom_chunks, command)
 
-                        # Convert parsed result into DataFrame
                         rows = [line.split("|")[1:-1] for line in parsed_result.splitlines() if line.startswith("|")]
-                        headers = rows.pop(0)  # Assume first row is the header
-                        df = pd.DataFrame(rows, columns=headers)
+                        if rows:  # Only proceed if rows are not empty
+                            headers = rows.pop(0)
+                            df = pd.DataFrame(rows, columns=headers)
 
-                        # Write the DataFrame to a new sheet
-                        parsed_url = urlparse(url)
-                        domain = parsed_url.netloc.split(".")[0].replace(".", "_")
-                        sheet_name = f"Result_{domain}"
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                            if not df.empty:
+                                parsed_url = urlparse(url)
+                                domain = parsed_url.netloc.split(".")[0].replace(".", "_")
+                                sheet_name = f"Result_{domain}"[:31]  # Excel sheet names have a max length of 31 characters
+                                df.to_excel(writer, sheet_name=sheet_name, index=False)
+                                sheets_written += 1
 
-                        st.success(f"Processed URL {i + 1} into sheet '{sheet_name}'")
-                        st.session_state.download_history.append({
-                            "file": excel_file,
-                            "urls": [item["url"] for item in st.session_state.urls_and_commands],
-                        })
+                                st.success(f"Processed URL {i + 1} into sheet '{sheet_name}'")
+                                st.session_state.download_history.append({
+                                    "file": excel_file,
+                                    "urls": [item["url"] for item in st.session_state.urls_and_commands],
+                                })
+                            else:
+                                st.warning(f"No data to write for URL {i + 1}: {url}")
+                        else:
+                            st.warning(f"No data parsed for URL {i + 1}: {url}")
+
+                    # If no sheets were written, add a default sheet
+                    if sheets_written == 0:
+                        pd.DataFrame({"Note": ["No valid data was processed."]}).to_excel(
+                            writer, sheet_name="Default", index=False
+                        )
 
                 st.success("✅ Processing complete!")
                 st.session_state.results_file = excel_file
@@ -121,10 +125,10 @@ with col2:
             except Exception as e:
                 st.error(f"Error during processing: {e}")
 
-        else:
-            st.warning("⚠️ No URLs to process. Add them in the left panel.")
+    else:
+        st.warning("⚠️ No URLs to process. Add them in the left panel.")
 
-    # Lower Right Section: Download History
+
     st.write("### Download History")
     if st.session_state.download_history:
         for idx, record in enumerate(st.session_state.download_history):
